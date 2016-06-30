@@ -1,9 +1,9 @@
 /****************************************************************************
 **
-** Copyright (C) 2014 Ford Motor Company
+** Copyright (C) 2016 Ford Motor Company
 ** Contact: http://www.qt-project.org/legal
 **
-** This file is part of the examples of the Qt Toolkit.
+** This file is part of the QtRemoteObjects module of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:LGPL$
 ** Commercial License Usage
@@ -39,30 +39,30 @@
 **
 ****************************************************************************/
 
-#include <QTreeView>
-#include <QApplication>
-#include <QRemoteObjectNode>
-#include <QAbstractItemModelReplica>
+#include <qdebug.h>
 
-int main(int argc, char **argv)
+#include "mytestserver.h"
+#include "rep_MyInterface_source.h"
+
+MyTestServer::MyTestServer(QObject *parent)
+    : MyInterfaceSimpleSource(parent)
 {
+    qDebug() << "Server started";
+}
 
-    QLoggingCategory::setFilterRules("qt.remoteobjects.debug=false\n"
-                                     "qt.remoteobjects.warning=false\n"
-                                     "qt.remoteobjects.models.debug=false\n"
-                                     "qt.remoteobjects.models.debug=false");
+MyTestServer::~MyTestServer()
+{
+    qDebug() << "Server stopped";
+}
 
-    QApplication app(argc, argv);
+bool MyTestServer::start()
+{
+    setStarted(true);
+    return true;
+}
 
-
-
-    QRemoteObjectNode node(QUrl(QStringLiteral("local:registry")));
-    QTreeView view;
-    view.setWindowTitle(QStringLiteral("RemoteView"));
-    view.resize(640,480);
-    QScopedPointer<QAbstractItemModelReplica> model(node.acquireModel(QStringLiteral("RemoteModel")));
-    view.setModel(model.data());
-    view.show();
-
-    return app.exec();
+bool MyTestServer::stop()
+{
+    setStarted(false);
+    return true;
 }

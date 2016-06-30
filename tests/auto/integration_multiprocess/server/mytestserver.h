@@ -1,9 +1,9 @@
 /****************************************************************************
 **
-** Copyright (C) 2014 Ford Motor Company
+** Copyright (C) 2016 Ford Motor Company
 ** Contact: http://www.qt-project.org/legal
 **
-** This file is part of the examples of the Qt Toolkit.
+** This file is part of the QtRemoteObjects module of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:LGPL$
 ** Commercial License Usage
@@ -39,30 +39,27 @@
 **
 ****************************************************************************/
 
-#include <QTreeView>
-#include <QApplication>
-#include <QRemoteObjectNode>
-#include <QAbstractItemModelReplica>
+#ifndef MYTESTSERVER_H
+#define MYTESTSERVER_H
 
-int main(int argc, char **argv)
+#include <QTimer>
+
+#include <QtRemoteObjects/qremoteobjectnode.h>
+#include <QtRemoteObjects/qremoteobjectsource.h>
+
+#include "rep_MyInterface_source.h"
+
+class MyTestServer : public MyInterfaceSimpleSource
 {
+    Q_OBJECT
 
-    QLoggingCategory::setFilterRules("qt.remoteobjects.debug=false\n"
-                                     "qt.remoteobjects.warning=false\n"
-                                     "qt.remoteobjects.models.debug=false\n"
-                                     "qt.remoteobjects.models.debug=false");
+public:
+    MyTestServer(QObject *parent = Q_NULLPTR);
+    ~MyTestServer();
 
-    QApplication app(argc, argv);
+public Q_SLOTS:
+    bool start() Q_DECL_OVERRIDE;
+    bool stop() Q_DECL_OVERRIDE;
+};
 
-
-
-    QRemoteObjectNode node(QUrl(QStringLiteral("local:registry")));
-    QTreeView view;
-    view.setWindowTitle(QStringLiteral("RemoteView"));
-    view.resize(640,480);
-    QScopedPointer<QAbstractItemModelReplica> model(node.acquireModel(QStringLiteral("RemoteModel")));
-    view.setModel(model.data());
-    view.show();
-
-    return app.exec();
-}
+#endif // MYTESTSERVER_H

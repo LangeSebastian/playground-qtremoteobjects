@@ -1,9 +1,9 @@
 /****************************************************************************
 **
-** Copyright (C) 2014 Ford Motor Company
+** Copyright (C) 2016 Ford Motor Company
 ** Contact: http://www.qt-project.org/legal
 **
-** This file is part of the examples of the Qt Toolkit.
+** This file is part of the QtRemoteObjects module of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:LGPL$
 ** Commercial License Usage
@@ -39,30 +39,47 @@
 **
 ****************************************************************************/
 
-#include <QTreeView>
-#include <QApplication>
-#include <QRemoteObjectNode>
-#include <QAbstractItemModelReplica>
+#include "rep_MyInterface_replica.h"
 
-int main(int argc, char **argv)
+#include <QCoreApplication>
+#include <QtRemoteObjects/qremoteobjectnode.h>
+#include <QtTest/QtTest>
+
+class tst_Client_Process : public QObject
 {
+    Q_OBJECT
 
-    QLoggingCategory::setFilterRules("qt.remoteobjects.debug=false\n"
-                                     "qt.remoteobjects.warning=false\n"
-                                     "qt.remoteobjects.models.debug=false\n"
-                                     "qt.remoteobjects.models.debug=false");
+private Q_SLOTS:
+    void testRun()
+    {
+        QRemoteObjectNode repNode;
+        repNode.connectToNode(QUrl(QStringLiteral("tcp://127.0.0.1:65213")));
 
-    QApplication app(argc, argv);
+        QSharedPointer<MyInterfaceReplica> rep(repNode.acquire<MyInterfaceReplica>());
+        QVERIFY(rep->waitForSource());
 
+        auto reply = rep->start();
+        QVERIFY(reply.waitForFinished());
 
+        // BEGIN: Testing
+        QSignalSpy advanceSpy(rep.data(), SIGNAL(advance()));
 
-    QRemoteObjectNode node(QUrl(QStringLiteral("local:registry")));
-    QTreeView view;
-    view.setWindowTitle(QStringLiteral("RemoteView"));
-    view.resize(640,480);
-    QScopedPointer<QAbstractItemModelReplica> model(node.acquireModel(QStringLiteral("RemoteModel")));
-    view.setModel(model.data());
-    view.show();
+        QSignalSpy spy(rep.data(), SIGNAL(enum1Changed(MyInterfaceReplica::Enum1)));
+        QVERIFY(advanceSpy.wait());
 
-    return app.exec();
-}
+        QCOMPARE(spy.count(), 2);
+        // END: Testing
+
+        reply = rep->stop();
+        QVERIFY(reply.waitForFinished());
+
+        qDebug() << "Done. Shutting down.";
+
+        // wait for delivery of events
+        QTest::qWait(200);
+    }
+};
+
+QTEST_MAIN(tst_Client_Process)
+
+#include "main.moc"

@@ -1,9 +1,9 @@
 /****************************************************************************
 **
-** Copyright (C) 2014 Ford Motor Company
+** Copyright (C) 2016 Ford Motor Company
 ** Contact: http://www.qt-project.org/legal
 **
-** This file is part of the examples of the Qt Toolkit.
+** This file is part of the QtRemoteObjects module of the Qt Toolkit.
 **
 ** $QT_BEGIN_LICENSE:LGPL$
 ** Commercial License Usage
@@ -39,30 +39,56 @@
 **
 ****************************************************************************/
 
-#include <QTreeView>
-#include <QApplication>
-#include <QRemoteObjectNode>
-#include <QAbstractItemModelReplica>
+#include "mytestserver.h"
 
-int main(int argc, char **argv)
+#include <QCoreApplication>
+#include <QtTest/QtTest>
+
+class tst_Server_Process : public QObject
 {
+    Q_OBJECT
 
-    QLoggingCategory::setFilterRules("qt.remoteobjects.debug=false\n"
-                                     "qt.remoteobjects.warning=false\n"
-                                     "qt.remoteobjects.models.debug=false\n"
-                                     "qt.remoteobjects.models.debug=false");
+private Q_SLOTS:
+    void testRun()
+    {
+        QRemoteObjectHost srcNode(QUrl(QStringLiteral("tcp://127.0.0.1:65213")));
+        MyTestServer myTestServer;
 
-    QApplication app(argc, argv);
+        srcNode.enableRemoting(&myTestServer);
 
+        qDebug() << "Waiting for incoming connections";
 
+        QSignalSpy waitForStartedSpy(&myTestServer, SIGNAL(startedChanged(bool)));
+        QVERIFY(waitForStartedSpy.isValid());
+        QVERIFY(waitForStartedSpy.wait());
+        QCOMPARE(waitForStartedSpy.value(0).value(0).toBool(), true);
 
-    QRemoteObjectNode node(QUrl(QStringLiteral("local:registry")));
-    QTreeView view;
-    view.setWindowTitle(QStringLiteral("RemoteView"));
-    view.resize(640,480);
-    QScopedPointer<QAbstractItemModelReplica> model(node.acquireModel(QStringLiteral("RemoteModel")));
-    view.setModel(model.data());
-    view.show();
+        // wait for delivery of events
+        QTest::qWait(200);
 
-    return app.exec();
-}
+        qDebug() << "Client connected";
+
+        // BEGIN: Testing
+
+        // make sure continuous changes to enums don't mess up the protocol
+        myTestServer.setEnum1(MyTestServer::Second);
+        myTestServer.setEnum1(MyTestServer::Third);
+
+        emit myTestServer.advance();
+
+        // END: Testing
+
+        waitForStartedSpy.clear();
+        QVERIFY(waitForStartedSpy.wait());
+        QCOMPARE(waitForStartedSpy.value(0).value(0).toBool(), false);
+
+        qDebug() << "Done. Shutting down.";
+
+        // wait for delivery of events
+        QTest::qWait(200);
+    }
+};
+
+QTEST_MAIN(tst_Server_Process)
+
+#include "main.moc"

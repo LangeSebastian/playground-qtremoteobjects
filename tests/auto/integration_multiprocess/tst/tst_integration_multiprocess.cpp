@@ -39,54 +39,75 @@
 **
 ****************************************************************************/
 
-#ifndef QREMOTEOBJECTS_ABSTRACTITEMMODELREPLICA_H
-#define QREMOTEOBJECTS_ABSTRACTITEMMODELREPLICA_H
+#include <QtTest/QtTest>
+#include <QMetaType>
+#include <QProcess>
 
-#include <QtRemoteObjects/qtremoteobjectglobal.h>
+namespace {
 
-#include <QAbstractItemModel>
-#include <QItemSelectionModel>
+QString findExecutable(const QString &executableName, const QStringList &pathHints)
+{
+    foreach (const auto &pathHint, pathHints) {
+#ifdef Q_OS_WIN
+        const QString executablePath = pathHint + executableName + ".exe";
+#else
+        const QString executablePath = pathHint + executableName;
+#endif
+        if (QFileInfo::exists(executablePath))
+            return executablePath;
+    }
 
-QT_BEGIN_NAMESPACE
+    qWarning() << "Could not find executable:" << executableName << "in any of" << pathHints;
+    return QString();
+}
 
-class QAbstractItemModelReplicaPrivate;
+}
 
-class Q_REMOTEOBJECTS_EXPORT QAbstractItemModelReplica : public QAbstractItemModel
+class tst_Integration_MultiProcess: public QObject
 {
     Q_OBJECT
-public:
-    ~QAbstractItemModelReplica();
 
-    QItemSelectionModel* selectionModel() const;
+private slots:
+    void initTestCase()
+    {
+        QLoggingCategory::setFilterRules("qt.remoteobjects.warning=false");
+    }
 
-    QVariant data(const QModelIndex & index, int role = Qt::DisplayRole) const Q_DECL_OVERRIDE;
-    bool setData(const QModelIndex &index, const QVariant &value, int role = Qt::EditRole) Q_DECL_OVERRIDE;
-    QModelIndex parent(const QModelIndex & index) const  Q_DECL_OVERRIDE;
-    QModelIndex index(int row, int column, const QModelIndex & parent = QModelIndex()) const Q_DECL_OVERRIDE;
-    bool hasChildren(const QModelIndex & parent = QModelIndex()) const Q_DECL_OVERRIDE;
-    int rowCount(const QModelIndex & parent = QModelIndex()) const Q_DECL_OVERRIDE;
-    int columnCount(const QModelIndex & parent = QModelIndex()) const Q_DECL_OVERRIDE;
-    QVariant headerData(int section, Qt::Orientation orientation, int role) const Q_DECL_OVERRIDE;
-    Qt::ItemFlags flags(const QModelIndex &index) const Q_DECL_OVERRIDE;
-    QVector<int> availableRoles() const;
-    QHash<int, QByteArray> roleNames() const Q_DECL_OVERRIDE;
+    void cleanup()
+    {
+        // wait for delivery of RemoveObject events to the source
+        QTest::qWait(200);
+    }
 
-    bool isInitialized() const;
-    bool hasData(const QModelIndex &index, int role) const;
+    void testRun()
+    {
+        qDebug() << "Starting server process";
+        QProcess serverProc;
+        serverProc.setProcessChannelMode(QProcess::ForwardedChannels);
+        serverProc.start(findExecutable("server", {
+            QCoreApplication::applicationDirPath() + "/../server/"
+        }));
+        QVERIFY(serverProc.waitForStarted());
 
-    size_t rootCacheSize() const;
-    void setRootCacheSize(size_t rootCacheSize);
+        // wait for server start
+        QTest::qWait(200);
 
-Q_SIGNALS:
-    void initialized();
+        qDebug() << "Starting client process";
+        QProcess clientProc;
+        clientProc.setProcessChannelMode(QProcess::ForwardedChannels);
+        clientProc.start(findExecutable("client", {
+            QCoreApplication::applicationDirPath() + "/../client/"
+        }));
+        QVERIFY(clientProc.waitForStarted());
 
-private:
-    explicit QAbstractItemModelReplica(QAbstractItemModelReplicaPrivate *rep);
-    QScopedPointer<QAbstractItemModelReplicaPrivate> d;
-    friend class QAbstractItemModelReplicaPrivate;
-    friend class QRemoteObjectNode;
+        QVERIFY(clientProc.waitForFinished());
+        QVERIFY(serverProc.waitForFinished());
+
+        QCOMPARE(serverProc.exitCode(), 0);
+        QCOMPARE(clientProc.exitCode(), 0);
+    }
 };
 
-QT_END_NAMESPACE
+QTEST_MAIN(tst_Integration_MultiProcess)
 
-#endif // QREMOTEOBJECTS_ABSTRACTITEMMODELREPLICA_H
+#include "tst_integration_multiprocess.moc"

@@ -841,9 +841,9 @@ void QRemoteObjectHostBase::setName(const QString &name)
 
     \sa setHostUrl()
 */
-QUrl QRemoteObjectHost::hostUrl() const
+QUrl QRemoteObjectHostBase::hostUrl() const
 {
-    Q_D(const QRemoteObjectHost);
+    Q_D(const QRemoteObjectHostBase);
     return d->remoteObjectIo->serverAddress();
 }
 
@@ -852,9 +852,9 @@ QUrl QRemoteObjectHost::hostUrl() const
 
     Returns \c true if the Host address is set, otherwise \c false.
 */
-bool QRemoteObjectHost::setHostUrl(const QUrl &hostAddress)
+bool QRemoteObjectHostBase::setHostUrl(const QUrl &hostAddress)
 {
-    Q_D(QRemoteObjectHost);
+    Q_D(QRemoteObjectHostBase);
     if (d->remoteObjectIo) {
         d->m_lastError = ServerAlreadyCreated;
         return false;
@@ -1250,17 +1250,6 @@ bool QRemoteObjectHostBase::disableRemoting(QObject *remoteObject)
     }
 
     return true;
-}
-
-QUrl QRemoteObjectHostBase::hostUrl() const
-{
-    return QUrl();
-}
-
-bool QRemoteObjectHostBase::setHostUrl(const QUrl &hostAddress)
-{
-    Q_UNUSED(hostAddress)
-    return false;
 }
 
 QSharedPointer<QIODevice> QRemoteObjectHostBase::socket() const
